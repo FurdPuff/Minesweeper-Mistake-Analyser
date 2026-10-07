@@ -4,7 +4,7 @@ from game import read_json, Game
 from patterns import UNKNOWN, canonical, window, sees_revealed
 import sqlite3
 
-SAMPLE_SIZE = 5 # width and height of a board sample that is taken as the boards pattern
+SAMPLE_SIZE = 7 # width and height of a board sample that is taken as the boards pattern
 
 init_db = """
 CREATE TABLE IF NOT EXISTS patterns (
@@ -47,7 +47,9 @@ CREATE TABLE IF NOT EXISTS cell_probs (
 CREATE INDEX IF NOT EXISTS idx_games_pattern ON games(pattern_id);
 """
 
-conn = sqlite3.connect("minesweeper_losses.db")
+file = "minesweeper_losses_size" + str(SAMPLE_SIZE) + ".db"
+
+conn = sqlite3.connect(file)
 conn.execute("PRAGMA foreign_keys = ON")
 conn.executescript(init_db)
 
