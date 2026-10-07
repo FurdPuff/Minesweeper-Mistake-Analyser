@@ -57,15 +57,24 @@ class Game:
                 return cell
         return None
 
-    def undo_mistake(self):
-        mistake = self.loss_trigger()
-        if mistake is None: # no mistake
-            return
-        self.grid[mistake.y][mistake.x] = Cell(mistake.x, mistake.y)
+    def count_mines(self) -> int:
+        return sum(c.mine for c in self) + sum(c.flag and not c.incorrect for c in self)
 
     def unflag_all(self):
         for cell in self:
-            cell.flag = False
+            if cell.flag:
+                if cell.incorrect:
+                    self.grid[cell.y][cell.x] = Cell(cell.x, cell.y)
+                else:
+                    cell.flag = False
+
+    def undo_mistake(self):
+        mistake = self.loss_trigger()
+        if mistake is None:
+            return
+        self.minecount = self.count_mines()
+        self.grid[mistake.y][mistake.x] = Cell(mistake.x, mistake.y)
+        self.unflag_all()
 
     def to_dict(self) -> dict:
         return {
