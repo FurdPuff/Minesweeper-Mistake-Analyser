@@ -1,15 +1,17 @@
-import json, ms_toollib as ms
+import json
+import ms_toollib as ms     # solver used: https://github.com/eee555/ms-toollib
 from pathlib import Path
 from game import read_json, Game
-from patterns import UNKNOWN, canonical, window, sees_revealed
+from patterns import UNKNOWN, OFF_BOARD, canonical, window, sees_revealed
+from pattern_solver import solve_patterns
 import sqlite3
 
-SAMPLE_SIZE = 7 # width and height of a board sample that is taken as the boards pattern
+SAMPLE_SIZE = 5 # width and height of a board sample that is taken as the boards pattern
 
 init_db = """
 CREATE TABLE IF NOT EXISTS patterns (
     id          INTEGER PRIMARY KEY,
-    canonical   TEXT UNIQUE  -- Fixed: Removed trailing comma
+    canonical   TEXT UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS games (
@@ -27,14 +29,11 @@ CREATE TABLE IF NOT EXISTS games (
     pattern_id  INTEGER REFERENCES patterns(id)
 );
 
-CREATE TABLE IF NOT EXISTS pattern_probs (
-    pattern_id  INTEGER,     -- Fixed: Changed type to INTEGER to match patterns(id)
-    game_url    TEXT,        -- Fixed: Added missing column required by the composite PRIMARY KEY
-    x           INTEGER, 
-    y           INTEGER,
-    p_mine      REAL NOT NULL,
-    PRIMARY KEY (game_url, x, y),
-    FOREIGN KEY (pattern_id) REFERENCES patterns(id) -- Fixed: Clean separation of PK and FK syntax
+CREATE TABLE pattern_probs (
+    pattern_id INTEGER REFERENCES patterns(id),
+    x INTEGER, y INTEGER,
+    p_mine REAL NOT NULL,
+    PRIMARY KEY (pattern_id, x, y)
 );
 
 CREATE TABLE IF NOT EXISTS cell_probs (
@@ -47,7 +46,10 @@ CREATE TABLE IF NOT EXISTS cell_probs (
 CREATE INDEX IF NOT EXISTS idx_games_pattern ON games(pattern_id);
 """
 
-file = "minesweeper_losses_size" + str(SAMPLE_SIZE) + ".db"
+file = "minesweeper_losses_size" + str(SAMPLE_SIZE)
+if OFF_BOARD == UNKNOWN:
+    file += "_off_boards_unknown"
+file += ".db"
 
 conn = sqlite3.connect(file)
 conn.execute("PRAGMA foreign_keys = ON")
@@ -111,3 +113,6 @@ conn.commit()
 print("processed", count, "games;",
       conn.execute("SELECT COUNT(*) FROM patterns").fetchone()[0], "distinct patterns")
 conn.close()
+
+if __name__ == '__main__':
+    solve_patterns(file)
