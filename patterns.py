@@ -1,5 +1,5 @@
-OFF_BOARD = -1
 UNKNOWN = 10
+OFF_BOARD = UNKNOWN    # -1 if you want off_board tiles to be distinct
 
 def neighbours(board, x, y):
     h, w = len(board), len(board[0])
@@ -36,14 +36,3 @@ def _encode(g):
 def canonical(g) -> str:
     """lexicographically smallest encoding over the 8 rotations/reflections"""
     return min(_encode(s) for s in _symmetries(g))
-
-def decode(s: str):
-    arr = []
-    r = []
-    for c in s:
-        if c == '/':
-            arr.append(r)
-            r = []
-            continue
-        un_sym = {"X": OFF_BOARD, "#": UNKNOWN, ".": 0}
-        r.append(un_sym.get(c, str(c)))
