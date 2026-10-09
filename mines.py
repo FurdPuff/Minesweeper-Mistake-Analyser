@@ -157,6 +157,9 @@ class Solver(object):
         self.informations_to_add = []
 
     def add_information(self, information):
+        information = Information(
+            frozenset(information.spaces).intersection(self.spaces),
+            information.count)
         if information.count < 0 or information.count > len(information.spaces):
             raise UnsolveableException()
         if information.count == 0:
@@ -174,6 +177,10 @@ class Solver(object):
             self.informations_for_space[space].remove(information)
 
     def add_known_value(self, space, value):
+        if space not in self.spaces:
+            if value:
+                raise UnsolveableException()
+            return
         self.spaces_to_add.append((space, value))
 
     def copy(self):
@@ -805,4 +812,3 @@ if __name__ == '__main__':
         picmagen_main(int(sys.argv[2]), int(sys.argv[3]))
     elif sys.argv[1] == 'picmapregen':
         picmapregen_main(int(sys.argv[2]), int(sys.argv[3]))
-
