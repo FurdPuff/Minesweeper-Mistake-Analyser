@@ -9,12 +9,23 @@ import sqlite3
 SAMPLE_SIZE = 5 # width and height of a board sample that is taken as the boards pattern
 
 init_db = """
-CREATE TABLE IF NOT EXISTS patterns (
-    id          INTEGER PRIMARY KEY,
-    canonical   TEXT UNIQUE
+PRAGMA foreign_keys = ON;
+
+DROP TABLE IF EXISTS pattern_probs;
+DROP TABLE IF EXISTS cell_probs;
+DROP TABLE IF EXISTS games;
+DROP TABLE IF EXISTS patterns;
+
+DROP INDEX IF EXISTS idx_games_pattern;
+
+CREATE TABLE patterns (
+    id                  INTEGER PRIMARY KEY,
+    canonical           TEXT UNIQUE,
+    discovered_info     BOOLEAN NOT NULL DEFAULT 0 CHECK (discovered_info IN (0, 1)),
+    frequency           INTEGER DEFAULT 1
 );
 
-CREATE TABLE IF NOT EXISTS games (
+CREATE TABLE games (
     url         TEXT PRIMARY KEY,
     game_id     INTEGER,
     width       INTEGER NOT NULL,
@@ -36,14 +47,14 @@ CREATE TABLE pattern_probs (
     PRIMARY KEY (pattern_id, x, y)
 );
 
-CREATE TABLE IF NOT EXISTS cell_probs (
+CREATE TABLE cell_probs (
     game_url TEXT REFERENCES games(url),
     x INTEGER, y INTEGER,
     p_mine REAL NOT NULL,
     PRIMARY KEY (game_url, x, y)
 );
 
-CREATE INDEX IF NOT EXISTS idx_games_pattern ON games(pattern_id);
+CREATE INDEX idx_games_pattern ON games(pattern_id);
 """
 
 file = "minesweeper_losses_size" + str(SAMPLE_SIZE)
@@ -52,7 +63,6 @@ if OFF_BOARD == UNKNOWN:
 file += ".db"
 
 conn = sqlite3.connect(file)
-conn.execute("PRAGMA foreign_keys = ON")
 conn.executescript(init_db)
 
 count = 0
@@ -91,7 +101,10 @@ for game_json in sorted(Path("losses").glob("*.json")):
     if sees_revealed(board, click.x, click.y):
         sample = window(board, click.x, click.y, SAMPLE_SIZE)
         canon = canonical(sample)
-        conn.execute("INSERT OR IGNORE INTO patterns (canonical) VALUES (?)", (canon,))
+        conn.execute("""
+                INSERT INTO patterns (canonical, frequency) VALUES (?, 1)
+                ON CONFLICT(canonical) DO UPDATE SET frequency = frequency + 1;
+        """, (canon,))
         pattern_id = conn.execute("SELECT id FROM patterns WHERE canonical = ?", (canon,)).fetchone()[0]
 
     conn.execute("DELETE FROM cell_probs WHERE game_url = ?", (game_url,))

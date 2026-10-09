@@ -1,5 +1,5 @@
 UNKNOWN = 10
-OFF_BOARD = UNKNOWN    # -1 if you want off_board tiles to be distinct
+OFF_BOARD = -1
 
 def neighbours(board, x, y):
     h, w = len(board), len(board[0])
