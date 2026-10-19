@@ -60,6 +60,19 @@ def decode(canon: str):
 def solve_patterns(db):
     conn = sqlite3.connect(db)
     conn.execute("PRAGMA foreign_keys = ON")
+
+    pattern_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(patterns)")
+    }
+    for column, data_type in (
+        ("click_p", "REAL"),
+        ("best_p", "REAL"),
+        ("n_safe", "INTEGER"),
+        ("grade", "REAL"),
+    ):
+        if column not in pattern_columns:
+            conn.execute(f"ALTER TABLE patterns ADD COLUMN {column} {data_type}")
+
     conn.execute("DROP TABLE IF EXISTS pattern_probs")
 
     conn.execute("""
@@ -78,7 +91,7 @@ def solve_patterns(db):
         try:
             solver, cells = decode(canon)
             solver.solve()
-            probs, total = solver.get_probabilities()
+            probs, total = solver.get_probabilities()   # probability of a mine
         except UnsolveableException:
             print("Pattern ", id, " is impossible")
             impossible_count += 1
@@ -89,11 +102,29 @@ def solve_patterns(db):
             if ch != "#":
                 continue
             if (x, y) in solver.solved_spaces:            # forced safe (0) or forced mine (1)
-                rows.append((id, x, y, float(solver.solved_spaces[(x, y)])))
+                probability = float(solver.solved_spaces[(x, y)])
             elif (x, y) in probs:
-                rows.append((id, x, y, probs[(x, y)] / total))
+                probability = probs[(x, y)] / total
+            else:
+                continue
+            rows.append((id, x, y, probability))
+
+        probabilities_by_space = {
+            (x, y): probability for _, x, y, probability in rows
+        }
+        center_coordinate = len(canon.split("/")) // 2
+        center = (center_coordinate, center_coordinate)
+        click_p = probabilities_by_space[center]
+        best_p = min(probabilities_by_space.values())
+        n_safe = sum(probability == 0.0 for probability in probabilities_by_space.values())
+        grade = (1 - click_p / (1 - best_p)) if best_p < 1 else 0.0
 
         conn.executemany("INSERT INTO pattern_probs VALUES (?, ?, ?, ?)", rows)
+        conn.execute("""
+            UPDATE patterns
+            SET click_p = ?, best_p = ?, n_safe = ?, grade = ?
+            WHERE id = ?
+        """, (click_p, best_p, n_safe, grade, id))
         if any(p in (0.0, 1.0) for _, _, _, p in rows):   # if any tiles were confirmed to be safe or mines
             discovered_count += 1
             conn.execute("UPDATE patterns SET discovered_info = 1 WHERE id = ?", (id,))

@@ -22,7 +22,11 @@ CREATE TABLE patterns (
     id                  INTEGER PRIMARY KEY,
     canonical           TEXT UNIQUE,
     discovered_info     BOOLEAN NOT NULL DEFAULT 0 CHECK (discovered_info IN (0, 1)),
-    frequency           INTEGER DEFAULT 1
+    frequency           INTEGER DEFAULT 1,
+    click_p             REAL,
+    best_p              REAL,
+    n_safe              INTEGER,
+    grade               REAL
 );
 
 CREATE TABLE games (
@@ -33,10 +37,10 @@ CREATE TABLE games (
     minecount   INTEGER NOT NULL,
     click_x     INTEGER NOT NULL,
     click_y     INTEGER NOT NULL,
-    click_p     REAL NOT NULL,              
-    best_p      REAL NOT NULL,              
-    n_safe      INTEGER NOT NULL,           
-    grade       REAL,
+    click_p     REAL NOT NULL,              -- probability clicked tile is mine
+    best_p      REAL NOT NULL,              -- lowest probability of a mine
+    n_safe      INTEGER NOT NULL,           -- number of safe unrevealed tiles
+    grade       REAL,                       -- grading of clicked tile
     pattern_id  INTEGER REFERENCES patterns(id)
 );
 
@@ -57,12 +61,13 @@ CREATE TABLE cell_probs (
 CREATE INDEX idx_games_pattern ON games(pattern_id);
 """
 
-file = "minesweeper_losses_size" + str(SAMPLE_SIZE)
+db_file = "minesweeper_losses_size" + str(SAMPLE_SIZE)
 if OFF_BOARD == UNKNOWN:
-    file += "_off_boards_unknown"
-file += ".db"
+    db_file += "_off_boards_unknown"
+sql_file = db_file + ".sql"
+db_file += ".db"
 
-conn = sqlite3.connect(file)
+conn = sqlite3.connect(db_file)
 conn.executescript(init_db)
 
 count = 0
@@ -85,10 +90,10 @@ for game_json in sorted(Path("losses").glob("*.json")):
             board[c.y][c.x] = c.number or 0
 
     try:
-        probs, (min_m, cur_m, max_m) = ms.cal_probability_onboard(board, game.minecount)
+        probs, (min_m, cur_m, max_m) = ms.cal_probability_onboard(board, game.minecount)        # probability of a mine
     except RuntimeError:
-            print("bad board:", game_json)
-            continue
+        print("bad board:", game_json)
+        continue
 
     unknown = [(c.x, c.y, probs[c.y][c.x]) for c in game if board[c.y][c.x] == UNKNOWN]
     click_p = probs[click.y][click.x]
@@ -125,7 +130,11 @@ for game_json in sorted(Path("losses").glob("*.json")):
 conn.commit()
 print("processed", count, "games;",
       conn.execute("SELECT COUNT(*) FROM patterns").fetchone()[0], "distinct patterns")
-conn.close()
 
-if __name__ == '__main__':
-    solve_patterns(file)
+solve_patterns(db_file)
+
+with open(sql_file, 'w', encoding='utf-8') as f:
+    for line in conn.iterdump():
+        f.write(f"{line}\n")
+
+conn.close()
