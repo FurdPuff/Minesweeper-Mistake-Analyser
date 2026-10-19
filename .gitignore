@@ -1,3 +1,3 @@
 losses
-minesweeper_losses_*
+data/minesweeper_losses_*
 __pycache__
