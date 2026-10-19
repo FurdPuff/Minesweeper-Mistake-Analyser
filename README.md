@@ -1,3 +1,5 @@
 Python and SQL project to determine the most common player mistakes and how they can be fixed.
 
-Website and published findings coming soon, currently you can only use this project to analyze data obtained using this other tool I made: https://github.com/FurdPuff/minesweeper-online-ethical-scraper
+Raw and analyzed data, excluding identifying game information, stored in clean_minesweeper_losses_size5.db and .csv files
+
+Website and published findings coming soon
